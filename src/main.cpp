@@ -120,25 +120,37 @@ int main() {
             player.velocity.y += GRAVITY;
         }
         player.update();
-        // camera
 
-        // TODO: Remove this line and replace it with code that determines if the player's (center)
-        // is between the two green lines (open space), in the soft exclusion zones (between the
-        // green and red lines), or in the hard exclusion zones (beyond either of the red lines).
-        //
-        // If the player is in the open zone, the camera does not need to move.
-        //
-        // If the player is in the soft exclusion zones, the camera should softly translate over
-        // multiple frames (via an exponential moving average) until the player's center is aligned
-        // with the violated soft boundary. Use SOFT_CAMERA_ALPHA for the alpha value.
-        //
-        // If the player is in the hard exclusion zones, the camera should hard-adjust so that
-        // the player's center is always kept at most *at* the red lines. This means that the
-        // player center must NEVER pass the red lines.
-        //
-        // Use SOFT_LIMIT_PERCENT and HARD_LIMIT_PERCENT to parameterize the green and red
-        // line positions.
-        camera.setCameraCenter({player.position.x, WINDOW_HEIGHT * 0.5f});
+        // Camera Logic
+        float playerWindowX = camera.worldToWindow(player.position).x;
+        // Define the soft and hard limit lines
+        constexpr float softLeft = WINDOW_WIDTH * SOFT_LIMIT_PERCENT;
+        constexpr float softRight = WINDOW_WIDTH * (1.f - SOFT_LIMIT_PERCENT);
+        constexpr float hardLeft = WINDOW_WIDTH * HARD_LIMIT_PERCENT;
+        constexpr float hardRight = WINDOW_WIDTH * (1.f - HARD_LIMIT_PERCENT);
+        if (playerWindowX >= softLeft && playerWindowX <= softRight) {
+            // Dead Zone (Do Nothing)
+        } else if (playerWindowX >= hardLeft && playerWindowX <= hardRight) {
+            // Soft Zone
+            // find which boundary is being violated
+            float violatedLineX = (playerWindowX < softLeft) ? softLeft : softRight;
+            // get the world coordinate of the violated boundary
+            float targetWorldX = camera.windowToWorld({violatedLineX, WINDOW_HEIGHT * 0.5f}).x;
+            // get current camera center
+            float currentCenterX = camera.getCameraCenter().x;
+            // perform exponential moving average
+            float newCenterX = currentCenterX + SOFT_CAMERA_ALPHA * (targetWorldX - currentCenterX);
+            // set the new camera center
+            camera.setCameraCenter(sf::Vector2f{newCenterX, WINDOW_HEIGHT * 0.5f});
+        } else {
+            // Hard Zone
+            // find which boundary is being violated
+            float violatedLineX = (playerWindowX < hardLeft) ? hardLeft : hardRight;
+            // get the world coordinate of the violated boundary
+            float targetWorldX = camera.windowToWorld({violatedLineX, WINDOW_HEIGHT * 0.5f}).x;
+            // set the new camera center
+            camera.setCameraCenter(sf::Vector2f{targetWorldX, WINDOW_HEIGHT * 0.5f});
+        }
 
         worldView.setCenter(camera.getCameraCenter());
         window.clear(sf::Color::Black);
